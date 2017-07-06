@@ -71,9 +71,17 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
 
     @Override
     public void onMapReady(GoogleMap map) {
+        addMarker(map);
+        setMyLocation(map);
+    }
+
+    private void setMyLocation(GoogleMap map) {
+        //map.setMyLocationEnabled(true);
+    }
+
+    private void addMarker(GoogleMap map) {
         LatLng latLng = new LatLng(31.0866, 34.905);
         map.addMarker(new MarkerOptions().position(latLng));
         map.animateCamera(CameraUpdateFactory.newLatLngZoom(latLng, 12));
-
     }
 }
