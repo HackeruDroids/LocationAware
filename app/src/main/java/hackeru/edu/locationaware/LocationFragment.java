@@ -3,6 +3,8 @@ package hackeru.edu.locationaware;
 
 import android.Manifest;
 import android.content.pm.PackageManager;
+import android.location.Address;
+import android.location.Geocoder;
 import android.location.Location;
 import android.os.Bundle;
 import android.support.annotation.NonNull;
@@ -14,9 +16,16 @@ import android.view.ViewGroup;
 import android.widget.TextView;
 
 import com.google.android.gms.location.FusedLocationProviderClient;
+import com.google.android.gms.location.LocationCallback;
 import com.google.android.gms.location.LocationRequest;
+import com.google.android.gms.location.LocationResult;
+import com.google.android.gms.maps.model.LatLng;
 import com.google.android.gms.tasks.OnCompleteListener;
 import com.google.android.gms.tasks.Task;
+
+import java.io.IOException;
+import java.util.List;
+import java.util.Locale;
 
 import butterknife.BindView;
 import butterknife.ButterKnife;
@@ -61,7 +70,7 @@ public class LocationFragment extends Fragment {
     @Override
     public void onResume() {
         super.onResume();
-        getLastKnownLocation();
+        getLocationUpdates();
     }
 
     //Might be null especially in the emulator:
@@ -100,21 +109,76 @@ public class LocationFragment extends Fragment {
     }
 
     private void getLocationUpdates() {
+        if (!checkLocationPermission()) return;
         LocationRequest request = new LocationRequest();
         request.setPriority(LocationRequest.PRIORITY_HIGH_ACCURACY);//GPS
         /*request.setPriority(LocationRequest.PRIORITY_LOW_POWER);//Cellular
         request.setPriority(LocationRequest.PRIORITY_NO_POWER);//Last Known Location
         request.setPriority(LocationRequest.PRIORITY_BALANCED_POWER_ACCURACY);//GPS + Cellular */
-
         request.setInterval(30 * 1000); //check the gps chip each 30 seconds
         request.setFastestInterval(500);
-
         //request.setNumUpdates //infinite updates
         //request.setExpirationDuration(60*60*1000);//stop after one hour
-        //request.setSmallestDisplacement(1000);//in meters
+        //request.setSmallestDisplacement(100); 100m... //Overrides the interval
 
-
+        //Executors.newCachedThreadPool()
         //client.requestLocationUpdates()
+
+        client.requestLocationUpdates(request, callback /*callback*/, null/*Looper*/);
     }
 
+    LocationCallback callback = new LocationCallback() {
+        @Override
+        public void onLocationResult(LocationResult locationResult) {
+            Location l = locationResult.getLastLocation();
+
+            String result = String.format(
+                    Locale.getDefault(),
+                    "(%e, %e)\n Speed: %e\n Time: %d\n",
+                    l.getLatitude(), l.getLongitude(), l.getSpeed(), l.getTime());
+
+            tvLocation.setText(result);
+
+            //GeoCoding vs Reverse Geocoding:
+            Geocoder coder = new Geocoder(getContext());
+
+            String a = "";
+
+            try {
+
+                List<Address> list = coder.getFromLocation(l.getLatitude(), l.getLongitude(), 2);
+                if (list.size() == 0) return;
+                Address address = list.get(0);
+                //address lines -> size =? lastIndex
+                for (int i = 0; i <= address.getMaxAddressLineIndex(); i++) {
+                    a += address.getAddressLine(i);
+                }
+                tvLocation.append("\n");
+                tvLocation.append(a);
+
+
+                List<Address> loc = coder.getFromLocationName("תיאטרון היהלום", 1);
+                LatLng latLng = new LatLng(loc.get(0).getLatitude(), loc.get(0).getLongitude());
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+
+
+        }
+    };
+    //gps->address
+    //address->coordinates
+
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        if (grantResults[0] == PackageManager.PERMISSION_GRANTED)
+            getLocationUpdates();
+
+        boolean shouldShowRequestPermissionRationale =
+                ActivityCompat.shouldShowRequestPermissionRationale(
+                        getActivity(),
+                        Manifest.permission.ACCESS_FINE_LOCATION);
+    }
 }
