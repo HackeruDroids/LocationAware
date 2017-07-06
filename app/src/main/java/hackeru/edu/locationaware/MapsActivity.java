@@ -1,8 +1,13 @@
 package hackeru.edu.locationaware;
 
+import android.Manifest;
+import android.content.DialogInterface;
 import android.content.Intent;
+import android.net.Uri;
 import android.os.Bundle;
+import android.provider.Settings;
 import android.support.annotation.NonNull;
+import android.support.v7.app.AlertDialog;
 import android.support.v7.app.AppCompatActivity;
 import android.widget.Toast;
 
@@ -13,6 +18,12 @@ import com.google.android.gms.maps.SupportMapFragment;
 import com.google.android.gms.maps.model.LatLng;
 import com.google.android.gms.maps.model.MarkerOptions;
 import com.google.firebase.auth.FirebaseAuth;
+import com.karumi.dexter.Dexter;
+import com.karumi.dexter.PermissionToken;
+import com.karumi.dexter.listener.PermissionDeniedResponse;
+import com.karumi.dexter.listener.PermissionGrantedResponse;
+import com.karumi.dexter.listener.PermissionRequest;
+import com.karumi.dexter.listener.single.PermissionListener;
 
 public class MapsActivity extends AppCompatActivity implements OnMapReadyCallback {
     private FirebaseAuth mAuth;
@@ -54,7 +65,6 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
     }
 
 
-
     @Override
     public void onStart() {
         super.onStart();
@@ -75,9 +85,54 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
         setMyLocation(map);
     }
 
-    private void setMyLocation(GoogleMap map) {
-        //map.setMyLocationEnabled(true);
-    }
+    private void setMyLocation(final GoogleMap map) {
+        Dexter.
+                withActivity(this).
+                withPermission(Manifest.permission.ACCESS_FINE_LOCATION).
+                withListener(new PermissionListener() {
+                    @Override
+                    public void onPermissionGranted(PermissionGrantedResponse response) {
+                        //noinspection MissingPermission
+                        map.setMyLocationEnabled(true);
+                    }
+                    @Override
+                    public void onPermissionDenied(PermissionDeniedResponse response) {
+                        if (response.isPermanentlyDenied()) {
+                            Intent intent = new Intent(
+                                    Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                                    Uri.parse("package:" + getPackageName()));
+
+                            startActivity(intent);
+                        } else {
+                            Toast.makeText(MapsActivity.this, "too bad... Your dog will lost", Toast.LENGTH_SHORT).show();
+                        }
+                    }
+                    @Override
+                    public void onPermissionRationaleShouldBeShown(PermissionRequest permission, final PermissionToken token) {
+                        //we need to explain to the user why we need the permission.
+                        new AlertDialog.
+                                Builder(MapsActivity.this).
+                                setTitle("We need your location").
+                                setMessage("Your dog might get lost , and we'll help you find it :)").
+                                setPositiveButton("Allow", new DialogInterface.OnClickListener() {
+                                    @Override
+                                    public void onClick(DialogInterface dialog, int which) {
+                                        token.continuePermissionRequest();
+                                    }
+                                }).
+                                setNegativeButton("Not Now...", new DialogInterface.OnClickListener() {
+                                    @Override
+                                    public void onClick(DialogInterface dialog, int which) {
+                                        Toast.makeText(MapsActivity.this, "Too bad... c ya", Toast.LENGTH_SHORT).show();
+                                    }
+                                }).
+                                show();
+
+
+                    }
+                }).
+                check();
+    }//32.0844031,34.7306784
 
     private void addMarker(GoogleMap map) {
         LatLng latLng = new LatLng(31.0866, 34.905);
