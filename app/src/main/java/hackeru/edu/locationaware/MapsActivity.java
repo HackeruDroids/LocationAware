@@ -3,6 +3,7 @@ package hackeru.edu.locationaware;
 import android.Manifest;
 import android.content.DialogInterface;
 import android.content.Intent;
+import android.location.Location;
 import android.net.Uri;
 import android.os.Bundle;
 import android.provider.Settings;
@@ -57,6 +58,7 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
         getSupportFragmentManager().
                 beginTransaction().
                 replace(R.id.frame1, mapFragment).
+                replace(R.id.frame2, new LocationFragment()).
                 commit();
 
         //tell me when the map is loaded:
@@ -94,6 +96,8 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
                     public void onPermissionGranted(PermissionGrantedResponse response) {
                         //noinspection MissingPermission
                         map.setMyLocationEnabled(true);
+
+                        Location location = map.getMyLocation();
                     }
                     @Override
                     public void onPermissionDenied(PermissionDeniedResponse response) {
