@@ -13,13 +13,14 @@ import android.support.v4.app.Fragment;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.EditText;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import com.google.android.gms.location.FusedLocationProviderClient;
 import com.google.android.gms.location.LocationCallback;
 import com.google.android.gms.location.LocationRequest;
 import com.google.android.gms.location.LocationResult;
-import com.google.android.gms.maps.model.LatLng;
 import com.google.android.gms.tasks.OnCompleteListener;
 import com.google.android.gms.tasks.Task;
 
@@ -29,6 +30,7 @@ import java.util.Locale;
 
 import butterknife.BindView;
 import butterknife.ButterKnife;
+import butterknife.OnEditorAction;
 import butterknife.Unbinder;
 
 
@@ -48,6 +50,8 @@ public class LocationFragment extends Fragment {
     Unbinder unbinder;
     //Api provider
     FusedLocationProviderClient client;
+    @BindView(R.id.etAddress)
+    EditText etAddress;
 
     @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container,
@@ -138,36 +142,44 @@ public class LocationFragment extends Fragment {
                     l.getLatitude(), l.getLongitude(), l.getSpeed(), l.getTime());
 
             tvLocation.setText(result);
-
-            //GeoCoding vs Reverse Geocoding:
-            Geocoder coder = new Geocoder(getContext());
-
-            String a = "";
-
-            try {
-
-                List<Address> list = coder.getFromLocation(l.getLatitude(), l.getLongitude(), 2);
-                if (list.size() == 0) return;
-                Address address = list.get(0);
-                //address lines -> size =? lastIndex
-                for (int i = 0; i <= address.getMaxAddressLineIndex(); i++) {
-                    a += address.getAddressLine(i);
-                }
-                tvLocation.append("\n");
-                tvLocation.append(a);
-
-
-                List<Address> loc = coder.getFromLocationName("תיאטרון היהלום", 1);
-                LatLng latLng = new LatLng(loc.get(0).getLatitude(), loc.get(0).getLongitude());
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
-
-
+            getAddress(l);
         }
     };
     //gps->address
     //address->coordinates
+
+    //reverse geo coding:
+    //Requires Internet Permission:
+    private void getAddress(Location l) {
+        //1) instance of a geoCoder
+        Geocoder geocoder = new Geocoder(getContext());
+        //2) fromLocation
+        try {
+            List<Address> addresses = geocoder.getFromLocation(
+                    l.getLatitude(),
+                    l.getLongitude(),
+                    1
+            );
+            if (addresses.size() == 0) return; //no result found
+
+
+            Address address = addresses.get(0);
+
+            //address is like an array of address lines:
+            for (int i = 0; i <= address.getMaxAddressLineIndex(); i++) {
+                String line = address.getAddressLine(i);
+                Toast.makeText(getContext(), line, Toast.LENGTH_SHORT).show();
+                //0 -> street
+                //1 -> City
+                //2 -> Country
+            }
+
+            //float meters = l.distanceTo(l2);
+
+        } catch (IOException e) { //Can't connect -> Internet?
+            e.printStackTrace();
+        }
+    }
 
 
     @Override
@@ -180,5 +192,37 @@ public class LocationFragment extends Fragment {
                 ActivityCompat.shouldShowRequestPermissionRationale(
                         getActivity(),
                         Manifest.permission.ACCESS_FINE_LOCATION);
+    }
+
+    //On IME Option Clicked:
+    /*
+    *   in xml of editText use the following attributes:
+    *   android:inputType="text"
+    *   android:imeOptions="actionSearch"
+    */
+    @OnEditorAction(R.id.etAddress)
+    public boolean searchClicked(TextView text) {
+        if (text.getText() != null && text.getText().length() > 0)
+            getLocation(text.getText().toString());
+        return false;
+    }
+
+    //forward geoCoding:
+    //get location from address:
+    private void getLocation(String address) {
+        Geocoder geocoder = new Geocoder(getContext(), Locale.getDefault());
+
+        try {
+            List<Address> addressList = geocoder.getFromLocationName(address, 1);
+            if (addressList.size() == 0) return;//No Results
+
+            Address a = addressList.get(0);
+            double latitude = a.getLatitude();
+            double longitude = a.getLongitude();
+            etAddress.setText("(" + latitude + ", " + longitude + ")");
+
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
     }
 }
